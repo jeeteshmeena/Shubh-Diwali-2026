@@ -444,23 +444,52 @@ html.sp-lock, html.sp-lock body { overflow:hidden !important; }
   function sanitize(v) {
     return Array.from(String(v == null ? "" : v).replace(/[<>\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim()).slice(0, 24).join("").trim();
   }
+  function encodeName(name) {
+    try {
+      const bin = encodeURIComponent(name.trim()).replace(/%([0-9A-F]{2})/g, function (match, p1) {
+        return String.fromCharCode("0x" + p1);
+      });
+      return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    } catch (e) {
+      return encodeURIComponent(name.trim());
+    }
+  }
+  function decodeName(str) {
+    if (!str) return "";
+    const s = String(str).trim();
+    try {
+      let b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+      while (b64.length % 4) b64 += "=";
+      const bin = atob(b64);
+      const esc = Array.prototype.map.call(bin, function (c) {
+        return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join("");
+      const dec = decodeURIComponent(esc);
+      if (dec && encodeName(dec) === s) return dec;
+    } catch (e) {}
+    try {
+      return decodeURIComponent(s.replace(/\+/g, " "));
+    } catch (e) {
+      return s;
+    }
+  }
   const NAME = (function () {
     try {
-      let v = new URLSearchParams(location.search).get("to");
-      if (!v) v = new URLSearchParams(location.search).get("n");
+      const sp = new URLSearchParams(location.search);
+      let v = sp.get("s") || sp.get("to") || sp.get("n");
       if (!v && location.pathname && location.pathname !== "/") {
         const p = location.pathname.replace(/^\/+|\/+$/g, "");
         const parts = p.split("/");
         if (parts.length === 1 && !parts[0].includes(".")) {
-          v = decodeURIComponent(parts[0].replace(/\+/g, " "));
+          v = parts[0];
         } else if (parts.length >= 2 && (parts[0] === "s" || parts[0] === "to")) {
-          v = decodeURIComponent(parts.slice(1).join("/").replace(/\+/g, " "));
+          v = parts.slice(1).join("/");
         }
       }
       if (!v && location.hash.length > 1) {
-        v = decodeURIComponent(location.hash.slice(1)).replace(/^(?:to|n)=/, "").replace(/\+/g, " ");
+        v = location.hash.slice(1).replace(/^(?:s|to|n)=/, "");
       }
-      return sanitize(v);
+      return sanitize(decodeName(v));
     } catch (e) { return ""; }
   })();
   const LABEL = NAME ? "Dear " + NAME + "," : "";
@@ -1556,10 +1585,8 @@ html.sp-lock, html.sp-lock body { overflow:hidden !important; }
     const cleanName = sanitize(n);
     const base = baseUrl().replace(/\/+$/, "");
     if (!cleanName) return base ? base + "/" : "";
-    if (/^https?:$/.test(location.protocol) || getBaseOrigin()) {
-      return base + "/s/" + encodeURIComponent(cleanName);
-    }
-    return base + "/?to=" + encodeURIComponent(cleanName);
+    const code = encodeName(cleanName);
+    return base + "/?s=" + code;
   };
   const curName = () => sanitize(nameIn.value);
   const curLink = () => makeShortLink(curName());

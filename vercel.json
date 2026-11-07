@@ -1,8 +1,7 @@
 {
-  "cleanUrls": true,
   "rewrites": [
-    { "source": "/s/:name*", "destination": "/index.html" },
-    { "source": "/to/:name*", "destination": "/index.html" },
-    { "source": "/((?!.*\\..*).*)", "destination": "/index.html" }
+    { "source": "/s/:path*", "destination": "/index.html" },
+    { "source": "/to/:path*", "destination": "/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
